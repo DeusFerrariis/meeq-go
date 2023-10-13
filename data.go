@@ -5,7 +5,6 @@ import (
   "github.com/redis/go-redis/v9"
   "context"
   "errors"
-  "strconv"
   "encoding/json"
 )
 
@@ -69,6 +68,38 @@ func (rc *RedisClient) Subscribe(topic string, subscriberID string) error {
   return nil
 }
 
+func (rc *RedisClient) Consume(topic string, subscriberID string, amount int) ([]Message, error) {
+  log.Info("Consuming messages from topic: " + topic)
+  if err := rc.CheckSubscriptions(topic, subscriberID); err != nil {
+    return nil, errors.New("Error consuming messages")
+  }
+
+  key := "topic:" + topic + ":messages"
+
+  var msgs []Message
+
+  r := rc.client.LPopCount(rc.ctx, key, amount)
+  if r.Err() == redis.Nil {
+    log.Info("No messages to consume")
+    return make([]Message, 0), nil
+  }
+
+  if r.Err() != nil {
+    log.Error("Error consuming messages, " + r.Err().Error())
+    return nil, errors.New("Error, retrieving messages failed")
+  }
+
+  for _, msg := range r.Val() {
+    var m Message
+    if err := json.Unmarshal([]byte(msg), &m); err != nil {
+      log.Error("Error consuming messages, " + err.Error())  
+    }
+    msgs = append(msgs, m)
+  }
+
+  return msgs, nil
+}
+
 func (rc *RedisClient) CheckSubscriptions(topic string, subscriberID string) error {
   log.Info("Checking subscriptions for topic: " + topic)
   key := "topic:" + topic + ":subscribers"
@@ -87,44 +118,4 @@ func (rc *RedisClient) CheckSubscriptions(topic string, subscriberID string) err
   }
 
   return errors.New("Subscriber is not subscribed to topic")
-}
-
-func (rc *RedisClient) Consume(topic string, subscriberID string, amount int) ([]Message, error) {
-  log.Info("Consuming messages from topic: " + topic)
-  if err := rc.CheckSubscriptions(topic, subscriberID); err != nil {
-    return nil, errors.New("Error consuming messages")
-  }
-
-  key := "topic:" + topic + ":messages"
-
-  var m []Message
-
-  for i := 0; i < amount; i++ {
-    r := rc.client.LPop(rc.ctx , key)
-  
-    if r.Err() == redis.Nil {
-      return m, nil
-    }
-
-    if r.Err() != nil {
-
-      log.Error("Error consuming messages, " + r.Err().Error())
-      return nil, errors.New("Error, retrieving messages failed")
-    }
-
-    var msg Message
-
-    err := json.Unmarshal([]byte(r.Val()), &msg)
-    if err != nil {
-      log.Error("Error consuming messages, " + err.Error())
-      return nil, errors.New("Error consuming messages")
-    }
-
-    m = append(m, msg)
-  }
-
-  as := strconv.Itoa(amount)
-  log.Info(as + " messages consumed successfully\n")
-
-  return m, nil
 }
