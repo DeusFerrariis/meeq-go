@@ -59,17 +59,3 @@ func FetchConfigPath() string {
   c := os.Getenv("HOME")
   return c + "/.config/meeq.toml"
 }
-
-func NewRedisClient(host string, port int) RedisClient {
-  p := ":" + strconv.Itoa(port)
-  addr := host + p
-
-  return RedisClient{
-    client: redis.NewClient(&redis.Options{
-      Addr: addr,
-      Password: "",
-      DB: 0,
-    }),
-    ctx: context.Background(),
-  }
-}

@@ -8,17 +8,31 @@ import (
   "encoding/json"
 )
 
+type RedisClient struct {
+  client *redis.Client
+  ctx context.Context
+}
+
+func NewRedisClient(host string, port int) RedisClient {
+  p := ":" + strconv.Itoa(port)
+  addr := host + p
+
+  return RedisClient{
+    client: redis.NewClient(&redis.Options{
+      Addr: addr,
+      Password: "",
+      DB: 0,
+    }),
+    ctx: context.Background(),
+  }
+}
+
 type MessageExchange interface {
   NewTopic(name string) error
   Publish(topic string, msg Message) error
   Subscribe(topic string, subscriberID string) error
   Consume(topic string, subscriberID string, amount int) ([]Message, error)
   CheckSubscriptions(topic string, subscriberID string) error
-}
-
-type RedisClient struct {
-  client *redis.Client
-  ctx context.Context
 }
 
 func (rc *RedisClient) NewTopic(name string) error {
