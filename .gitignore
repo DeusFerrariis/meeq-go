@@ -21,6 +21,7 @@
 
 !**.md
 !**.nix
+!flake.lock
 
 # !Makefile
 
